@@ -24,9 +24,9 @@ namespace DepYourFriend.Patches
 
         [HarmonyPatch("MouseClick")]
         [HarmonyPrefix]
-        public static bool MouseClickPrefix(PlayerDying __instance, ref bool ___IsDead)
+        public static bool MouseClickPrefix(PlayerDying __instance)
         {
-            if (ShouldBlockSelfRespawn() && ___IsDead)
+            if (ShouldBlockSelfRespawn() && __instance.IsDead)
             {
                 // Find current bail for local player
                 int bail = FriendBailManager.BaseBail;

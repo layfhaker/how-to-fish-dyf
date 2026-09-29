@@ -22,11 +22,26 @@ namespace DepYourFriend
         // Maps DeadPlayer NetworkObject ObjectId to current bail amount
         private static readonly Dictionary<int, int> _deadPlayerBails = new Dictionary<int, int>();
 
+        private static bool _broadcastRegistered;
+
         public static void Initialize()
         {
+            _broadcastRegistered = false;
+            EnsureBroadcastRegistered();
+        }
+
+        /// <summary>
+        /// Register the bail-sync broadcast as soon as the local ClientManager is available.
+        /// Called lazily from bail writes/reads because at plugin-Awake time the networking layer
+        /// usually isn't initialized yet.
+        /// </summary>
+        private static void EnsureBroadcastRegistered()
+        {
+            if (_broadcastRegistered) return;
             if (InstanceFinder.ClientManager != null)
             {
                 InstanceFinder.ClientManager.RegisterBroadcast<BailSyncBroadcast>(OnBailSyncReceived);
+                _broadcastRegistered = true;
             }
         }
 
@@ -37,6 +52,7 @@ namespace DepYourFriend
 
         public static int GetBail(DeadPlayer deadPlayer)
         {
+            EnsureBroadcastRegistered();
             if (deadPlayer == null) return BaseBail;
 
             int id = GetObjectId(deadPlayer);
@@ -53,6 +69,7 @@ namespace DepYourFriend
 
         public static void SetBail(DeadPlayer deadPlayer, int amount, bool broadcast = true)
         {
+            EnsureBroadcastRegistered();
             if (deadPlayer == null) return;
             int id = GetObjectId(deadPlayer);
             if (id == 0) return;
