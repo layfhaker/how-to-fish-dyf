@@ -21,10 +21,11 @@ namespace DepYourFriend.Patches
 
                 if (item.DeadPlayer != null)
                 {
-                    // Show the friend's SIGNED value on the table: negative = debt (you'll pay to
-                    // revive), positive = profit (revive pays you). Non-zero keeps it a stake.
+                    // The casino stake must stay POSITIVE (SetTotalWorthText shows BetButtons only when
+                    // worth > 0). Show the debt/profit MAGNITUDE here; the sign is conveyed by the 2D
+                    // HUD and the friend status string.
                     int v = FriendBailManager.GetBail(item.DeadPlayer);
-                    total += (v == 0 ? 1 : v);
+                    total += Mathf.Max(1, Mathf.Abs(v));
                 }
                 else
                 {
@@ -120,8 +121,6 @@ namespace DepYourFriend.Patches
 
             // Set IsBetting = false
             Traverse.Create(typeof(CasinoManager)).Property("IsBetting").SetValue(false);
-
-            CasinoBoxPatch.ButtonsVisible = anyRemain;
 
             return false; // Skip vanilla method
         }
