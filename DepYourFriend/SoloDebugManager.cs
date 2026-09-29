@@ -66,6 +66,41 @@ namespace DepYourFriend
             SpawnDummyDeadFriend();
         }
 
+        private static Texture2D? _panelTex;
+        private static GUIStyle? _panelStyle;
+
+        /// <summary>
+        /// Fixed 2D on-screen overlay while the local player is holding a friend's corpse, so the bail
+        /// and next-action hint stay readable regardless of camera/world text position.
+        /// </summary>
+        private void OnGUI()
+        {
+            if (Player.LocalPlayer == null || Player.LocalPlayer.Holding == null) return;
+            if (Player.LocalPlayer.Holding.HeldItem is not DeadPlayer dp) return;
+
+            int bail = FriendBailManager.GetBail(dp);
+            string status = FriendBailManager.GetBailStatusString(bail);
+
+            if (_panelStyle == null)
+            {
+                _panelTex = new Texture2D(1, 1);
+                _panelTex.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.72f));
+                _panelTex.Apply();
+                _panelStyle = new GUIStyle(GUI.skin.box)
+                {
+                    fontSize = 17,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleLeft,
+                    richText = true,
+                    wordWrap = true,
+                    normal = { textColor = Color.white, background = _panelTex }
+                };
+            }
+
+            string text = $"<color=#FFD700>[ ТРУП ДРУГА ]</color>  {status}\n<size=14><color=#BBBBBB>Держи ЛКМ, чтобы оживить · неси на стол рулетки, чтобы сыграть</color></size>";
+            GUI.Box(new Rect(16, Screen.height - 104, Mathf.Min(840, Screen.width - 32), 76), text, _panelStyle);
+        }
+
         private void DespawnDebugCorpse()
         {
             DeadPlayer? corpse = ActiveDebugCorpse;
@@ -124,6 +159,10 @@ namespace DepYourFriend
             {
                 DepPlugin.ModLogger?.LogError($"[F7] SetPlayer threw: {e}");
             }
+
+            // The debug corpse is bound to the still-ALIVE player: undo the voice-target move done by
+            // SetPlayer() so we don't hijack the living player's voice-chat audio onto the corpse.
+            try { dummy.SetVoiceChatParent(false); } catch { }
 
             bool serverReady = server != null && server.IsServerInitialized;
             if (serverReady)

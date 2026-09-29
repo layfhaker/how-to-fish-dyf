@@ -1,4 +1,3 @@
-using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -6,49 +5,21 @@ using UnityEngine.InputSystem;
 namespace DepYourFriend.Patches
 {
     /// <summary>
-    /// Vanilla DeadPlayer.Update() destroys a corpse on the server whenever its bound player
-    /// is ALIVE (Health &gt; 0). Real corpses bind to a dead player, so that's fine. The F7 debug
-    /// corpse is bound to an ALIVE local player, so vanilla logic would instantly destroy it.
-    /// This patch preserves the base Item physics + resurrection lifecycle for ONLY the active
-    /// debug corpse, while skipping the stale-corpse destroy. Normal corpses are untouched.
+    /// Vanilla DeadPlayer.Update() destroys a corpse on the server whenever its bound player is ALIVE
+    /// (Health &gt; 0). Real corpses bind to a dead player, so that's fine. The F7 debug corpse is bound
+    /// to an ALIVE local player, so the vanilla stale-corpse guard tries to DestroyItem() it every
+    /// server frame. Block DestroyItem() of the active debug corpse only: the rest of the corpse
+    /// lifecycle (Update, UpdateResurrection, held-follow) keeps running normally, so slaps/revive
+    /// still work. Real corpses pass through untouched.
     /// </summary>
-    [HarmonyPatch(typeof(DeadPlayer))]
+    [HarmonyPatch(typeof(Item))]
     public static class DebugCorpsePatch
     {
-        private static readonly MethodInfo _itemUpdate =
-            AccessTools.Method(typeof(Item), "Update");
-        private static readonly MethodInfo _updateResurrection =
-            AccessTools.Method(typeof(DeadPlayer), "UpdateResurrection");
-
-        [HarmonyPatch("Update")]
+        [HarmonyPatch("DestroyItem")]
         [HarmonyPrefix]
-        public static bool UpdatePrefix(DeadPlayer __instance)
+        public static bool DestroyItemPrefix(Item __instance)
         {
-            if (SoloDebugManager.ActiveDebugCorpse != __instance)
-            {
-                // Normal dead player — run vanilla logic unchanged.
-                return true;
-            }
-
-            // Debug corpse bound to an alive player: re-run base.Item.Update + UpdateResurrection
-            // (the parts the original would otherwise do) but skip the auto-destroy branch.
-            if (_itemUpdate == null || _updateResurrection == null)
-            {
-                // Reflection setup failed — fall back to vanilla (corpse will self-destruct).
-                return true;
-            }
-
-            try
-            {
-                _itemUpdate.Invoke(__instance, null);
-                _updateResurrection.Invoke(__instance, null);
-            }
-            catch
-            {
-                // Debug-only; swallow reflection edge cases.
-            }
-
-            return false; // skip the vanilla Destroy-on-alive-player branch
+            return SoloDebugManager.ActiveDebugCorpse != __instance;
         }
     }
 
@@ -134,6 +105,51 @@ namespace DepYourFriend.Patches
 
             // Clear record
             FriendBailManager.RemoveBail(corpse);
+        }
+    }
+
+    /// <summary>
+    /// Resurrection of the F7 DEBUG friend. Vanilla Server.ResurrectPlayer(player, deadPlayer) refuses
+    /// to revive a player whose Health &gt; 0 — and the debug corpse is bound to the still-ALIVE local
+    /// player, so the vanilla RPC would no-op. For exactly the active debug corpse, settle the bail and
+    /// despawn the corpse (the "friend comes back") ourselves, skipping the vanilla ServerRpc.
+    /// Real corpses fall through to vanilla.
+    /// </summary>
+    [HarmonyPatch(typeof(Server))]
+    public static class DebugResurrectPatch
+    {
+        [HarmonyPatch("ResurrectPlayer")]
+        [HarmonyPrefix]
+        public static bool ResurrectPlayerPrefix(Player player, DeadPlayer deadPlayer)
+        {
+            if (player == null || deadPlayer == null) return true;
+            if (SoloDebugManager.ActiveDebugCorpse != deadPlayer) return true;
+
+            Player resurrecting = deadPlayer.LastHolder != null ? deadPlayer.LastHolder : player;
+
+            if (Server.Instance != null && Server.Instance.IsServerInitialized)
+            {
+                int bail = FriendBailManager.GetBail(deadPlayer);
+                if (bail > 0)
+                {
+                    MoneyManager.RemoveMoney(bail, resurrecting);
+                }
+                else if (bail < 0)
+                {
+                    MoneyManager.AddMoney(Mathf.Abs(bail), resurrecting);
+                }
+                FriendBailManager.RemoveBail(deadPlayer);
+            }
+
+            // Clear the debug marker so the despawn below isn't blocked by DebugCorpsePatch.
+            SoloDebugManager.ActiveDebugCorpse = null;
+            if (Server.Instance != null && Server.Instance.IsServerInitialized && deadPlayer.gameObject != null)
+            {
+                deadPlayer.DestroyItem(0);
+            }
+
+            PlayerUI.SetLookAtText("<color=#55FF55>[DEBUG]</color> ДРУГ ОЖИЛ! Похлопал по лицу :)");
+            return false; // skip the vanilla ServerRpc (it would refuse to revive an alive-bound corpse)
         }
     }
 }
