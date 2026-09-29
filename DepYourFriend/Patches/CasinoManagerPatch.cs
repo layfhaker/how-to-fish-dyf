@@ -1,9 +1,72 @@
+using System.Collections;
 using System.Collections.Generic;
 using HarmonyLib;
+using TMPro;
 using UnityEngine;
 
 namespace DepYourFriend.Patches
 {
+    /// <summary>
+    /// When a DeadPlayer corpse is on the table, the casino should show the friend's SIGNED value
+    /// (a debt shows a minus, e.g. "-$100"). Vanilla uses the single _totalWorth for BOTH the bet
+    /// buttons (only shown when worth &gt; 0) and the displayed text, so we reimplement the display
+    /// here: buttons are driven by "something is wagered", the text is signed. Casual items keep the
+    /// vanilla path.
+    /// </summary>
+    [HarmonyPatch(typeof(LocalCasino))]
+    public static class LocalCasinoSignedPatch
+    {
+        [HarmonyPatch("SetTotalWorthText")]
+        [HarmonyPrefix]
+        public static bool SetTotalWorthTextPrefix(LocalCasino __instance)
+        {
+            var items = Traverse.Create(typeof(CasinoManager)).Field("_itemsToBet").GetValue<List<Item>>();
+            if (items == null) return true;
+
+            int signed = 0;
+            bool hasCorpse = false;
+            bool hasWager = false;
+            foreach (Item item in items)
+            {
+                if (item == null) continue;
+                if (item.DeadPlayer != null)
+                {
+                    hasCorpse = true;
+                    signed += FriendBailManager.GetBail(item.DeadPlayer);
+                }
+                else
+                {
+                    signed += Mathf.Max(0, item.TotalWorth);
+                }
+                hasWager = true;
+            }
+
+            if (!hasCorpse) return true; // casual items: keep vanilla
+
+            // Stop a previously running worth-count coroutine so our text isn't overwritten.
+            Coroutine? routine = Traverse.Create(__instance).Field("_worthRoutine").GetValue<Coroutine>();
+            if (routine != null)
+            {
+                __instance.StopCoroutine(routine);
+                Traverse.Create(__instance).Field("_worthRoutine").SetValue(null);
+            }
+
+            Traverse.Create(__instance).Field("_curBetWorth").SetValue(signed);
+            Traverse.Create(__instance).Field("_targetBetWorth").SetValue(signed);
+
+            TextMeshProUGUI? txt = Traverse.Create(__instance).Field("_curWorthText").GetValue<TextMeshProUGUI>();
+            if (txt != null)
+            {
+                txt.text = signed < 0 ? $"-${Mathf.Abs(signed)}" : $"${signed}";
+            }
+
+            // Buttons shown as long as something is actually wagered.
+            BetButton.ToggleAll(hasWager && signed != 0);
+
+            return false; // replaced vanilla display for corpse bets
+        }
+    }
+
     [HarmonyPatch(typeof(CasinoManager))]
     public static class CasinoManagerPatch
     {
