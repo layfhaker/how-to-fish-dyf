@@ -25,8 +25,9 @@ namespace DepYourFriend.Patches
 
     /// <summary>
     /// Hover() is declared on the Item base class (not overridden by DeadPlayer), so Harmony's
-    /// DeclaredMethod lookup on DeadPlayer fails to attach a postfix there. Patch Item.Hover
-    /// directly and only rewrite the look-at text when the hovered item is a DeadPlayer corpse.
+    /// DeclaredMethod lookup on DeadPlayer fails to attach a postfix there. Patch Item.Hover/UnHover
+    /// directly. For corpses we DON'T spawn the world-anchored 3D look-at text (it flies into the
+    /// camera) — instead we flag the hovered corpse and SoloDebugManager draws a fixed 2D overlay.
     /// </summary>
     [HarmonyPatch(typeof(Item))]
     public static class DeadPlayerHoverPatch
@@ -37,11 +38,18 @@ namespace DepYourFriend.Patches
         {
             if (__instance is not DeadPlayer dp) return;
 
-            int bail = FriendBailManager.GetBail(dp);
-            string status = FriendBailManager.GetBailStatusString(bail);
+            SoloDebugManager.HoveredCorpse = dp;
+            PlayerUI.HideLookAtText();
+        }
 
-            string customText = $"{dp.GetName()}\n<color=#FFD700>{status}</color>\n<size=80%><color=#00FFAA>[Можно положить на рулетку!]</color></size>\n{SpriteManager.GetPickUpInput()}";
-            PlayerUI.UpdateLookAtText(customText);
+        [HarmonyPatch("UnHover")]
+        [HarmonyPostfix]
+        public static void UnHoverPostfix(Item __instance)
+        {
+            if (__instance is DeadPlayer && SoloDebugManager.HoveredCorpse == __instance)
+            {
+                SoloDebugManager.HoveredCorpse = null;
+            }
         }
     }
 

@@ -11,6 +11,7 @@ namespace DepYourFriend
         /// DebugCorpsePatch suppresses that destroy for exactly this corpse.
         /// </summary>
         public static DeadPlayer? ActiveDebugCorpse;
+        public static DeadPlayer? HoveredCorpse;
 
         private void Update()
         {
@@ -76,7 +77,10 @@ namespace DepYourFriend
         private void OnGUI()
         {
             if (Player.LocalPlayer == null || Player.LocalPlayer.Holding == null) return;
-            if (Player.LocalPlayer.Holding.HeldItem is not DeadPlayer dp) return;
+
+            DeadPlayer? dp = Player.LocalPlayer.Holding.HeldItem as DeadPlayer
+                             ?? (HoveredCorpse != null ? HoveredCorpse : null);
+            if (dp == null) return;
 
             int bail = FriendBailManager.GetBail(dp);
             string status = FriendBailManager.GetBailStatusString(bail);
@@ -97,7 +101,11 @@ namespace DepYourFriend
                 };
             }
 
-            string text = $"<color=#FFD700>[ ТРУП ДРУГА ]</color>  {status}\n<size=14><color=#BBBBBB>Держи ЛКМ, чтобы оживить · неси на стол рулетки, чтобы сыграть</color></size>";
+            bool holding = Player.LocalPlayer.Holding.HeldItem as DeadPlayer != null;
+            string hint = holding
+                ? "Держи ЛКМ, чтобы оживить · или неси на стол рулетки, чтобы сыграть"
+                : "Возьми в руки, чтобы оживить или понести на стол рулетки";
+            string text = $"<color=#FFD700>[ ТРУП ДРУГА ]</color>  {status}\n<size=14><color=#BBBBBB>{hint}</color></size>";
             GUI.Box(new Rect(16, Screen.height - 104, Mathf.Min(840, Screen.width - 32), 76), text, _panelStyle);
         }
 

@@ -21,8 +21,9 @@ namespace DepYourFriend.Patches
 
                 if (item.DeadPlayer != null)
                 {
-                    // DeadPlayer counts as $100 stake so roulette buttons activate
-                    total += 100;
+                    // DeadPlayer stake = current bail (evolves with wins/losses), but always at least
+                    // $1 so the corpse stays a countable stake and activates the bet buttons.
+                    total += Mathf.Max(1, FriendBailManager.GetBail(item.DeadPlayer));
                 }
                 else
                 {

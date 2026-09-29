@@ -19,8 +19,11 @@ namespace DepYourFriend.Patches
             Vector3 center = ____col.transform.TransformPoint(____col.center);
             Vector3 halfExtents = Vector3.Scale(____col.size * 0.5f, __instance.transform.localScale);
             
-            // Check both ItemLayer and Default layers in case ragdoll limbs have different layers
-            int layerMask = GameInfo.ItemLayer | (1 << LayerMask.NameToLayer("Default"));
+            // Check both ItemLayer and Default layers in case ragdoll limbs have different layers.
+            // Also include the drop/hold item layers: a freshly-dropped corpse uses the ItemPart
+            // layer, so without it the table only occasionally catches the corpse (the "pick up and
+            // put it back again" bug).
+            int layerMask = GameInfo.ItemLayer | GameInfo.ItemPartLayer | GameInfo.ItemAndInHandLayer | (1 << LayerMask.NameToLayer("Default"));
             Collider[] colliders = Physics.OverlapBox(center, halfExtents, __instance.transform.rotation, layerMask);
             
             List<Item> list = new List<Item>();
