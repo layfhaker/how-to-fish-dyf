@@ -70,6 +70,9 @@ namespace DepYourFriend.Patches
     [HarmonyPatch(typeof(CasinoManager))]
     public static class CasinoManagerPatch
     {
+        /// <summary>Signed stake last reported, so a +99&lt;-&gt;-99 flip (same magnitude) still refreshes
+        /// the table's sign.</summary>
+        private static int _lastSignedTotal;
         [HarmonyPatch("CalculateWorth")]
         [HarmonyPrefix]
         public static bool CalculateWorthPrefix(bool won)
@@ -78,6 +81,7 @@ namespace DepYourFriend.Patches
             if (items == null) return true;
 
             int total = 0;
+            int signedTotal = 0;
             foreach (Item item in items)
             {
                 if (item == null) continue;
@@ -85,19 +89,25 @@ namespace DepYourFriend.Patches
                 if (item.DeadPlayer != null)
                 {
                     // The casino stake must stay POSITIVE (SetTotalWorthText shows BetButtons only when
-                    // worth > 0). Show the debt/profit MAGNITUDE here; the sign is conveyed by the 2D
-                    // HUD and the friend status string.
+                    // worth > 0). Show the debt/profit MAGNITUDE here; the sign is conveyed by the
+                    // LocalCasinoSignedPatch display and the friend status string.
                     int v = FriendBailManager.GetBail(item.DeadPlayer);
                     total += Mathf.Max(1, Mathf.Abs(v));
+                    signedTotal += v;
                 }
                 else
                 {
                     total += item.TotalWorth;
+                    signedTotal += item.TotalWorth;
                 }
             }
 
-            if (CasinoManager.Instance != null && total != CasinoManager.Instance._totalWorth.Value)
+            // Refresh when EITHER the magnitude OR the sign changes: a +99<->-99 flip keeps the same
+            // magnitude, so gating only on the magnitude would leave the minus stale on the table.
+            if (CasinoManager.Instance != null &&
+                (total != CasinoManager.Instance._totalWorth.Value || signedTotal != _lastSignedTotal))
             {
+                _lastSignedTotal = signedTotal;
                 CasinoManager.Instance._totalWorth.Value = total;
                 Traverse.Create(CasinoManager.Instance).Method("UpdateTotalWorth", total, won).GetValue();
             }
