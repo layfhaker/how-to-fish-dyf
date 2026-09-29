@@ -28,7 +28,7 @@ namespace DepYourFriend
 
             FriendBailManager.Initialize();
 
-            gameObject.AddComponent<SoloDebugManager>();
+            gameObject.AddComponent<FriendBailHUD>();
 
             ModLogger.LogInfo($"{ModName} loaded successfully! Ready to gamble your friends on the roulette table.");
         }

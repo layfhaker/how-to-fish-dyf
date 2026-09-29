@@ -7,15 +7,8 @@ namespace DepYourFriend.Patches
     [HarmonyPatch(typeof(PlayerDying))]
     public static class PlayerDyingPatch
     {
-        public static bool SoloTestMode = false;
-
         public static bool ShouldBlockSelfRespawn()
         {
-            if (SoloTestMode)
-            {
-                return BossManager.Boss == null;
-            }
-
             // Mod rule: active only for 2+ players, outside boss fight, and while at least one teammate is alive
             return PlayerManager.Players.Count >= 2 &&
                    BossManager.Boss == null &&
