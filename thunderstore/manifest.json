@@ -4,6 +4,6 @@
   "website_url": "https://github.com/layfhaker/how-to-fish-dyf",
   "description": "Gamble your dead friends on the casino roulette table! Features bail debts, roulette gambling, and spooky dead voice chat.",
   "dependencies": [
-    "BepInEx-BepInExPack-5.4.2100"
+    "BepInEx-BepInExPack-5.4.2305"
   ]
 }
