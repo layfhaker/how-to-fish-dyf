@@ -15,9 +15,8 @@ namespace DepYourFriend
 
     public static class FriendBailManager
     {
-        public const int BaseBail = 100;
-        public const int RedBlackDelta = 100;
-        public const int GreenDelta = 3300;
+        public const int BaseValue = -100;    // friend's value when it dies: a $100 debt
+        public const int FreeThreshold = 99; // |value| at or below which a favorable result flips the sign
 
         // Maps DeadPlayer NetworkObject ObjectId to current bail amount
         private static readonly Dictionary<int, int> _deadPlayerBails = new Dictionary<int, int>();
@@ -53,18 +52,18 @@ namespace DepYourFriend
         public static int GetBail(DeadPlayer deadPlayer)
         {
             EnsureBroadcastRegistered();
-            if (deadPlayer == null) return BaseBail;
+            if (deadPlayer == null) return BaseValue;
 
             int id = GetObjectId(deadPlayer);
-            if (id == 0) return BaseBail;
+            if (id == 0) return BaseValue;
 
             if (_deadPlayerBails.TryGetValue(id, out int bail))
             {
                 return bail;
             }
 
-            _deadPlayerBails[id] = BaseBail;
-            return BaseBail;
+            _deadPlayerBails[id] = BaseValue;
+            return BaseValue;
         }
 
         public static void SetBail(DeadPlayer deadPlayer, int amount, bool broadcast = true)
@@ -87,12 +86,28 @@ namespace DepYourFriend
             }
         }
 
-        public static int AdjustBail(DeadPlayer deadPlayer, int delta)
+        /// <summary>
+        /// Variant-B roulette: multiplicative double/halve with a sign flip at the FreeThreshold.
+        /// Negative V = debt (you'll pay |V| to revive), positive V = profit (revive pays you V).
+        /// </summary>
+        public static int ResolveRoulette(DeadPlayer deadPlayer, int multiplier, bool won)
         {
-            int current = GetBail(deadPlayer);
-            int updated = current + delta;
-            SetBail(deadPlayer, updated, broadcast: true);
-            return updated;
+            int v = GetBail(deadPlayer);
+            if (won)
+            {
+                if (v > 0) v = v * multiplier;                 // profit grows
+                else v = Mathf.CeilToInt(v / (float)multiplier); // debt shrinks toward 0
+                if (Mathf.Abs(v) <= FreeThreshold) v = FreeThreshold; // paid off -> flips to profit
+            }
+            else
+            {
+                if (v < 0) v = v * multiplier;                  // debt grows
+                else v = Mathf.FloorToInt(v / (float)multiplier); // profit shrinks
+                if (Mathf.Abs(v) <= FreeThreshold) v = -FreeThreshold; // drops back to debt
+            }
+
+            SetBail(deadPlayer, v, broadcast: true);
+            return v;
         }
 
         public static void RemoveBail(DeadPlayer deadPlayer)
@@ -121,9 +136,9 @@ namespace DepYourFriend
 
         public static string GetBailStatusString(int bail)
         {
-            if (bail > 0)
+            if (bail < 0)
             {
-                return $"Залог: ${bail}";
+                return $"Залог: ${Math.Abs(bail)}";
             }
             else if (bail == 0)
             {
@@ -131,7 +146,7 @@ namespace DepYourFriend
             }
             else
             {
-                return $"Выигрыш при оживлении: +${Math.Abs(bail)}!";
+                return $"Прибыль при оживлении: +${bail}!";
             }
         }
     }

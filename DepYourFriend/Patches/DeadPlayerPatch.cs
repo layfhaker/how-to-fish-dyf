@@ -99,16 +99,15 @@ namespace DepYourFriend.Patches
             Player resurrectingPlayer = corpse.LastHolder != null ? corpse.LastHolder : ____player;
             if (resurrectingPlayer == null) return;
 
-            if (bail > 0)
+            if (bail < 0)
             {
-                // Deduct bail
-                MoneyManager.RemoveMoney(bail, resurrectingPlayer);
+                // Debt: the bank pays |bail| to revive the friend.
+                MoneyManager.RemoveMoney(Mathf.Abs(bail), resurrectingPlayer);
             }
-            else if (bail < 0)
+            else if (bail > 0)
             {
-                // Casino payout reward!
-                int reward = Mathf.Abs(bail);
-                MoneyManager.AddMoney(reward, resurrectingPlayer);
+                // Profit: the revive pays out.
+                MoneyManager.AddMoney(bail, resurrectingPlayer);
             }
 
             // Clear record
@@ -138,13 +137,13 @@ namespace DepYourFriend.Patches
             if (Server.Instance != null && Server.Instance.IsServerInitialized)
             {
                 int bail = FriendBailManager.GetBail(deadPlayer);
-                if (bail > 0)
+                if (bail < 0)
                 {
-                    MoneyManager.RemoveMoney(bail, resurrecting);
+                    MoneyManager.RemoveMoney(Mathf.Abs(bail), resurrecting);
                 }
-                else if (bail < 0)
+                else if (bail > 0)
                 {
-                    MoneyManager.AddMoney(Mathf.Abs(bail), resurrecting);
+                    MoneyManager.AddMoney(bail, resurrecting);
                 }
                 FriendBailManager.RemoveBail(deadPlayer);
             }

@@ -27,13 +27,13 @@ namespace DepYourFriend.Patches
                     TextMeshProUGUI tmp = ____friendsHelpText.GetComponentInChildren<TextMeshProUGUI>();
                     if (tmp != null)
                     {
-                        int bail = FriendBailManager.BaseBail;
+                        int bail = FriendBailManager.BaseValue;
                         if (Player.LocalPlayer != null && Player.LocalPlayer.Dying != null && Player.LocalPlayer.Dying.DeadPlayer != null)
                         {
                             bail = FriendBailManager.GetBail(Player.LocalPlayer.Dying.DeadPlayer);
                         }
 
-                        tmp.text = $"<color=#FFD700>ТЕКУЩИЙ ЗАЛОГ: ${bail}</color>\n<size=75%><color=#AAAAAA>Ждите оживления от союзника или депа на рулетке!</color></size>";
+                        tmp.text = $"<color=#FFD700>{FriendBailManager.GetBailStatusString(bail)}</color>\n<size=75%><color=#AAAAAA>Ждите оживления от союзника или депа на рулетке!</color></size>";
                     }
                 }
             }

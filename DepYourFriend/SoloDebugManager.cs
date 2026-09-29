@@ -184,7 +184,7 @@ namespace DepYourFriend
             }
 
             // Register standard base bail of $100
-            FriendBailManager.SetBail(dummy, FriendBailManager.BaseBail);
+            FriendBailManager.SetBail(dummy, FriendBailManager.BaseValue);
 
             PlayerUI.SetLookAtText($"<color=#00FFAA>[DEBUG F7] ТРУП ДРУГА ЗАСПАВНЕН!</color>\nЗалог: $100. Бери в руки и неси на стол рулетки!{(!serverReady ? "\n<color=#FF5555>ВНИМАНИЕ: сервер не поднят — сетевое взаимодействие отключено</color>" : "")}");
         }

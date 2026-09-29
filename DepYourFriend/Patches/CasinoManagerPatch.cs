@@ -21,9 +21,10 @@ namespace DepYourFriend.Patches
 
                 if (item.DeadPlayer != null)
                 {
-                    // DeadPlayer stake = current bail (evolves with wins/losses), but always at least
-                    // $1 so the corpse stays a countable stake and activates the bet buttons.
-                    total += Mathf.Max(1, FriendBailManager.GetBail(item.DeadPlayer));
+                    // Show the friend's SIGNED value on the table: negative = debt (you'll pay to
+                    // revive), positive = profit (revive pays you). Non-zero keeps it a stake.
+                    int v = FriendBailManager.GetBail(item.DeadPlayer);
+                    total += (v == 0 ? 1 : v);
                 }
                 else
                 {
@@ -74,17 +75,8 @@ namespace DepYourFriend.Patches
                         // DEAD PLAYER LOGIC: Never destroy corpse on loss!
                         item.ToggleInteractable(true);
 
-                        int delta;
-                        if (curBetColor == BetColor.Green)
-                        {
-                            delta = won ? -FriendBailManager.GreenDelta : FriendBailManager.GreenDelta;
-                        }
-                        else
-                        {
-                            delta = won ? -FriendBailManager.RedBlackDelta : FriendBailManager.RedBlackDelta;
-                        }
-
-                        int newBail = FriendBailManager.AdjustBail(item.DeadPlayer, delta);
+                        int rouletteMult = curBetColor == BetColor.Green ? 35 : 2;
+                        int newBail = FriendBailManager.ResolveRoulette(item.DeadPlayer, rouletteMult, won);
 
                         // Visual WorldText feedback
                         if (LocalCasino.Instance != null)
@@ -118,12 +110,18 @@ namespace DepYourFriend.Patches
                 }
             }
 
-            // Recalculate worth and trigger bet result effects
+            bool anyRemain = items != null && items.Count > 0;
+
+            // Recalculate worth and trigger bet result effects. The corpse survives losses (not
+            // vanilla), so re-open the bet buttons whenever anything is still on the table; vanilla
+            // would leave them hidden after a loss.
             Traverse.Create(typeof(CasinoManager)).Method("CalculateWorth", won).GetValue();
-            Traverse.Create(__instance).Method("BetResultEffects", (byte)curBetColor, won).GetValue();
+            Traverse.Create(__instance).Method("BetResultEffects", (byte)curBetColor, won || anyRemain).GetValue();
 
             // Set IsBetting = false
             Traverse.Create(typeof(CasinoManager)).Property("IsBetting").SetValue(false);
+
+            CasinoBoxPatch.ButtonsVisible = anyRemain;
 
             return false; // Skip vanilla method
         }

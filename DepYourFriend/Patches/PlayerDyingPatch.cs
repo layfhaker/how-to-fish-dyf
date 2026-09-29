@@ -29,7 +29,7 @@ namespace DepYourFriend.Patches
             if (ShouldBlockSelfRespawn() && __instance.IsDead)
             {
                 // Find current bail for local player
-                int bail = FriendBailManager.BaseBail;
+                int bail = FriendBailManager.BaseValue;
                 if (__instance.DeadPlayer != null)
                 {
                     bail = FriendBailManager.GetBail(__instance.DeadPlayer);
